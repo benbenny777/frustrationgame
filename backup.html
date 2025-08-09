@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Player Endless Stickman Walker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* General body styling */
+        body {
+           background-color:black;     
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: sans-serif;
+            text-align: center;
+        }
+        
+        /* Main container for the game - now full screen */
+        .game-container {
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px #fff;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        /* Canvas styling */
+        canvas {
+            display: block;
+            background-color: transparent; /* Changed to transparent to show the background image */
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Title and status styling */
+        .status-text {
+            position: absolute;
+            top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+            margin: 0;
+            padding: 0;
+            font-size: 1.5em;
+            color: #fff;
+            text-shadow: 2px 2px 4px #000; /* Added text shadow for readability */
+            z-index: 10;
+        }
+        .audio-toggle {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 10px;
+            font-size: 0.8em;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        .leaderboard {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.2em;
+            z-index: 10;
+            color: #fff;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        .leaderboard-p1 {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.2em;
+            z-index: 10;
+            color: #fff;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        .game-over-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .game-over-container.show {
+            display: flex;
+        }
+
+        .game-over-text {
+            font-size: 3em;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            animation: pulse 1.5s infinite;
+        }
+        .game-over-buttons button {
+            margin: 0 10px;
+        }
+        .final-score {
+            font-size: 2em;
+            color: #fff;
+            margin: 20px 0;
+        }
+
+        .restart-button {
+            padding: 15px 30px;
+            font-size: 1.5em;
+            cursor: pointer;
+            background-color: #ff6347;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s ease-in-out;
+            margin: 10px;
+        }
+
+        .restart-button:hover {
+            background-color: #e55333;
+            transform: scale(1.05);
+        }
+
+        .level-message-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            animation: fadeIn 0.5s;
+        }
+
+        .level-message-container.show {
+            display: flex;
+        }
+
+        .level-message {
+            font-size: 4em;
+            color: #00ff00;
+            text-shadow: 0 0 15px #00ff00;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1 id="statusText" class="status-text">Use WASD (Player 1) & Arrow Keys (Player 2) to Move!</h1>
+        <button id="audioToggleBtn" class="audio-toggle">Audio: Off</button>
+        <p class="leaderboard-p1">Player 1 Doors Visited: <span id="score1">0</span></p>
+        <p class="leaderboard">Player 2 Doors Visited: <span id="score2">0</span></p>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="gameOverScreen" class="game-over-container">
+        <div class="game-over-text">GAME OVER</div>
+        <p class="final-score">Player 1 Score: <span id="finalScore1">0</span></p>
+        <p class="final-score">Player 2 Score: <span id="finalScore2">0</span></p>
+        <div class="game-over-buttons">
+            <button id="playAgainBtn" class="restart-button">Play Again</button>
+            <button id="restartFromCheckpointBtn" class="restart-button" style="display:none;">Restart from Checkpoint</button>
+        </div>
+    </div>
+
+    <div id="levelUpScreen" class="level-message-container">
+        <div id="levelMessage" class="level-message"></div>
+    </div>
+
+    <script>
+        // Get the canvas and its 2D context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusTextElement = document.getElementById('statusText');
+        const score1Element = document.getElementById('score1');
+        const score2Element = document.getElementById('score2');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScore1Element = document.getElementById('finalScore1');
+        const finalScore2Element = document.getElementById('finalScore2');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        const restartFromCheckpointBtn = document.getElementById('restartFromCheckpointBtn');
+        const audioToggleBtn = document.getElementById('audioToggleBtn');
+        const levelUpScreen = document.getElementById('levelUpScreen');
+        const levelMessageElement = document.getElementById('levelMessage');
+        
+        // Game state variables
+        let animationFrameId;
+        let controlsInverted = true;
+        let score1 = 0;
+        let score2 = 0;
+        let checkpoint = { score1: 0, score2: 0 };
+        let doorEscaping = false;
+        let doorEscapeTimer = 0;
+        let doorVisible = true;
+        let doorDisappearTimer = 0;
+        let isAudioEnabled = false;
+        let isMerged = false;
+        let isTransitioning = false;
+        let isGameOver = false;
+        
+        // Sound effects setup using Tone.js
+        const doorSynth = new Tone.Synth().toDestination();
+        const gooSynth = new Tone.Synth({
+            oscillator: { type: "square" },
+            envelope: {
+                attack: 0.05,
+                decay: 0.1,
+                sustain: 0.2,
+                release: 0.5,
+            }
+        }).toDestination();
+        const explosionNoise = new Tone.NoiseSynth({
+            noise: { type: "white" },
+            envelope: {
+                attack: 0.005,
+                decay: 0.3,
+                sustain: 0
+            }
+        }).toDestination();
+        const shootSynth = new Tone.Synth({
+            oscillator: { type: "triangle" },
+            envelope: {
+                attack: 0.01,
+                decay: 0.1,
+                sustain: 0,
+                release: 0.1
+            }
+        }).toDestination();
+        const gameOverSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+        const levelUpSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+        function playSound(effect) {
+            if (!isAudioEnabled) return;
+
+            // This ensures the audio context is running before playing
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+
+            switch(effect) {
+                case 'door':
+                    doorSynth.triggerAttackRelease("C5", "8n");
+                    break;
+                case 'goo':
+                    gooSynth.triggerAttackRelease("C2", "4n");
+                    break;
+                case 'explosion':
+                    explosionNoise.triggerAttackRelease("8n");
+                    break;
+                case 'shoot':
+                    shootSynth.triggerAttackRelease("C6", "16n");
+                    break;
+                case 'gameOver':
+                    if (!isGameOver) {
+                        gameOverSynth.triggerAttackRelease(["C3", "E2", "G2"], "2n");
+                        isGameOver = true;
+                    }
+                    break;
+                case 'levelUp':
+                    levelUpSynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n");
+                    break;
+            }
+        }
+        
+        // Stickman object properties
+        const stickman1 = {
+            id: 1,
+            x: 50,
+            y: 0,
+            color: '#fff',
+            invertedColor: '#ff0000',
+            size: 1,
+            walkCycle: 0,
+            walkSpeed: 0.1,
+            speed: 3,
+            vx: 0,
+            vy: 0,
+            width: 50,
+            height: 100,
+            isExploding: false,
+            explosionParticles: [],
+            isFrozen: false,
+            frozenTimer: 0,
+            hasGun: false,
+            bullets: [],
+            facingDirection: 1, // 1 for right, -1 for left
+            shieldActive: false,
+        };
+        
+        const stickman2 = {
+            id: 2,
+            x: 50,
+            y: 0,
+            color: '#00FFFF',
+            invertedColor: '#FF69B4',
+            size: 1,
+            walkCycle: 0,
+            walkSpeed: 0.1,
+            speed: 3,
+            vx: 0,
+            vy: 0,
+            width: 50,
+            height: 100,
+            isExploding: false,
+            explosionParticles: [],
+            isFrozen: false,
+            frozenTimer: 0,
+            hasGun: false,
+            bullets: [],
+            facingDirection: 1, // 1 for right, -1 for left
+            shieldActive: false,
+        };
+        
+        const mergedStickman = {
+            x: 0,
+            y: 0,
+            color: '#00FF00',
+            invertedColor: '#FFFF00',
+            size: 1.5,
+            walkCycle: 0,
+            walkSpeed: 0.1,
+            speed: 4,
+            vx: 0,
+            vy: 0,
+            width: 75,
+            height: 150,
+            isExploding: false,
+            explosionParticles: [],
+            isFrozen: false,
+            frozenTimer: 0
+        };
+
+        const door = {
+            x: 0,
+            y: 0,
+            width: 40,
+            height: 80,
+            color: 'blue',
+            vx: 0,
+            vy: 0,
+            speed: 5
+        };
+
+        const mines = [];
+        const numMines = 10;
+        const mineRadius = 10;
+
+        const gooTraps = [];
+        const numGooTraps = 8;
+        const gooRadius = 15;
+
+        function createDoor() {
+            door.x = Math.random() * (canvas.width - door.width);
+            door.y = Math.random() * (canvas.height - door.height);
+            door.vx = 0;
+            door.vy = 0;
+            doorVisible = true;
+        }
+        
+        function createTraps() {
+            mines.length = 0;
+            for (let i = 0; i < numMines; i++) {
+                mines.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height
+                });
+            }
+            gooTraps.length = 0;
+            for (let i = 0; i < numGooTraps; i++) {
+                gooTraps.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height
+                });
+            }
+        }
+
+        function resetGame() {
+            controlsInverted = true;
+            score1 = 0;
+            score2 = 0;
+            checkpoint.score1 = 0;
+            checkpoint.score2 = 0;
+            doorEscaping = false;
+            doorVisible = true;
+            isMerged = false;
+            isTransitioning = false;
+            isGameOver = false;
+            
+            stickman1.vx = 0;
+            stickman1.vy = 0;
+            stickman1.isExploding = false;
+            stickman1.isFrozen = false;
+            stickman1.explosionParticles = [];
+            stickman1.hasGun = false;
+            stickman1.bullets = [];
+            stickman1.shieldActive = false;
+            
+            stickman2.vx = 0;
+            stickman2.vy = 0;
+            stickman2.isExploding = false;
+            stickman2.isFrozen = false;
+            stickman2.explosionParticles = [];
+            stickman2.hasGun = false;
+            stickman2.bullets = [];
+            stickman2.shieldActive = false;
+            
+            mergedStickman.vx = 0;
+            mergedStickman.vy = 0;
+            mergedStickman.isExploding = false;
+            mergedStickman.isFrozen = false;
+
+            resizeCanvas();
+            updateStatusText();
+            updateScore();
+            gameOverScreen.classList.remove('show');
+            if (!animationFrameId) {
+                gameLoop();
+            }
+        }
+
+        function restartFromCheckpoint() {
+            controlsInverted = false;
+            score1 = checkpoint.score1;
+            score2 = checkpoint.score2;
+            doorEscaping = false;
+            doorVisible = false;
+            isMerged = true;
+            isTransitioning = false;
+            isGameOver = false;
+
+            mergedStickman.x = canvas.width / 2;
+            mergedStickman.y = canvas.height / 2;
+            mergedStickman.vx = 0;
+            mergedStickman.vy = 0;
+            mergedStickman.isExploding = false;
+            mergedStickman.isFrozen = false;
+
+            mines.length = 0;
+            gooTraps.length = 0;
+            createMines();
+            
+            updateStatusText();
+            updateScore();
+            gameOverScreen.classList.remove('show');
+            if (!animationFrameId) {
+                gameLoop();
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stickman1.x = canvas.width / 4;
+            stickman1.y = canvas.height / 2;
+            stickman2.x = canvas.width / 4 * 3;
+            stickman2.y = canvas.height / 2;
+            mergedStickman.x = canvas.width / 2;
+            mergedStickman.y = canvas.height / 2;
+            createDoor();
+            createTraps();
+        }
+        
+        function createExplosion(x, y, stickman) {
+            stickman.explosionParticles = [];
+            for (let i = 0; i < 30; i++) {
+                stickman.explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    size: Math.random() * 8 + 4,
+                    alpha: 1,
+                    color: 'rgba(255, 0, 0, 1)'
+                });
+            }
+            stickman.isExploding = true;
+            playSound('explosion');
+        }
+
+        function drawExplosion(stickman) {
+            for (let i = 0; i < stickman.explosionParticles.length; i++) {
+                const p = stickman.explosionParticles[i];
+                ctx.fillStyle = `rgba(255, 0, 0, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                p.x += p.vx;
+                p.y += p.vy;
+                p.size *= 0.95;
+                p.alpha *= 0.95;
+            }
+            stickman.explosionParticles = stickman.explosionParticles.filter(p => p.alpha > 0.1);
+            if (stickman.explosionParticles.length === 0) {
+                stickman.isExploding = false;
+                if (isMerged && !mergedStickman.isExploding) {
+                    finalScore1Element.textContent = score1;
+                    finalScore2Element.textContent = score2;
+                    gameOverScreen.classList.add('show');
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                    playSound('gameOver');
+                }
+                if (!isMerged && !stickman1.isExploding && !stickman2.isExploding && isTransitioning) {
+                    levelMessageElement.textContent = "Boss Fight!";
+                    setTimeout(() => {
+                        levelUpScreen.classList.remove('show');
+                        isMerged = true;
+                        isTransitioning = false;
+                        updateStatusText();
+                    }, 2000);
+                }
+            }
+        }
+        
+        function createMineExplosion() {
+            mines.forEach(mine => {
+                for (let i = 0; i < 15; i++) {
+                     stickman1.explosionParticles.push({
+                        x: mine.x,
+                        y: mine.y,
+                        vx: (Math.random() - 0.5) * 10,
+                        vy: (Math.random() - 0.5) * 10,
+                        size: Math.random() * 5 + 2,
+                        alpha: 1,
+                        color: 'rgba(0, 255, 255, 1)'
+                    });
+                }
+            });
+            stickman1.isExploding = true;
+            playSound('explosion');
+        }
+
+        function drawStickman(stickman) {
+            const size = stickman.size * 50;
+            const headRadius = size * 0.2;
+            const bodyHeight = size * 1.2;
+            const limbLength = size * 0.8;
+            
+            let stickmanColor = stickman.color;
+            if (stickman.isFrozen) {
+                stickmanColor = '#ADD8E6';
+            } else if (controlsInverted) {
+                stickmanColor = stickman.invertedColor;
+            }
+            ctx.strokeStyle = stickmanColor;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            
+            let legAngle1 = 0;
+            let legAngle2 = 0;
+            if (stickman.vx !== 0 || stickman.vy !== 0) {
+                stickman.walkCycle += stickman.walkSpeed;
+                legAngle1 = Math.sin(stickman.walkCycle) * 0.5;
+                legAngle2 = Math.sin(stickman.walkCycle + Math.PI) * 0.5;
+            } else {
+                stickman.walkCycle = 0;
+            }
+
+            ctx.beginPath();
+            ctx.arc(stickman.x, stickman.y - bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(stickman.x, stickman.y - bodyHeight);
+            ctx.lineTo(stickman.x, stickman.y);
+            ctx.stroke();
+            
+            const armAngle1 = Math.sin(stickman.walkCycle + Math.PI / 2) * 0.4;
+            const armAngle2 = Math.sin(stickman.walkCycle + Math.PI / 2 + Math.PI) * 0.4;
+
+            ctx.save();
+            ctx.translate(stickman.x, stickman.y - bodyHeight * 0.8);
+            ctx.rotate(armAngle1);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-limbLength * 0.6, -limbLength * 0.6);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(stickman.x, stickman.y - bodyHeight * 0.8);
+            ctx.rotate(armAngle2);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(limbLength * 0.6, -limbLength * 0.6);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(stickman.x, stickman.y);
+            
+            ctx.beginPath();
+            ctx.rotate(legAngle1);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, limbLength);
+            ctx.stroke();
+            
+            ctx.restore();
+            ctx.save();
+            ctx.translate(stickman.x, stickman.y);
+            
+            ctx.beginPath();
+            ctx.rotate(legAngle2);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, limbLength);
+            ctx.stroke();
+            
+            ctx.restore();
+
+            if (stickman.hasGun) {
+                drawGun(stickman);
+            }
+        }
+        
+        function drawGun(stickman) {
+            const size = stickman.size * 50;
+            const gunLength = 20;
+            const gunHeight = 5;
+            
+            ctx.fillStyle = '#696969';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            
+            ctx.save();
+            ctx.translate(stickman.x, stickman.y - size * 0.8);
+            
+            if (stickman.facingDirection === 1) { // Facing right
+                ctx.fillRect(0, 0, gunLength, gunHeight);
+                ctx.fillRect(10, 5, 5, 10);
+                ctx.fillRect(gunLength, 2, 15, 1);
+            } else { // Facing left
+                ctx.scale(-1, 1);
+                ctx.fillRect(0, 0, gunLength, gunHeight);
+                ctx.fillRect(10, 5, 5, 10);
+                ctx.fillRect(gunLength, 2, 15, 1);
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawShield(stickman) {
+            if (stickman.shieldActive) {
+                const headRadius = stickman.size * 0.2 * 50;
+                const shieldRadius = headRadius * 2;
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; // Semi-transparent cyan shield
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(stickman.x, stickman.y - (stickman.size * 50 * 1.2), shieldRadius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+
+        function drawBullet(bullet) {
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawDoor() {
+            if (doorVisible) {
+                ctx.fillStyle = door.color;
+                ctx.fillRect(door.x, door.y, door.width, door.height);
+            }
+        }
+        
+        function drawMines() {
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+            for (const mine of mines) {
+                ctx.beginPath();
+                ctx.arc(mine.x, mine.y, mineRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawGooTraps() {
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+            for (const trap of gooTraps) {
+                ctx.beginPath();
+                ctx.arc(trap.x, trap.y, gooRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function checkDoorCollision(stickman) {
+            if (!doorVisible || doorEscaping) return false;
+            const stickmanBounds = {
+                left: stickman.x - stickman.width / 2,
+                right: stickman.x + stickman.width / 2,
+                top: stickman.y - stickman.height,
+                bottom: stickman.y
+            };
+            const doorBounds = {
+                left: door.x,
+                right: door.x + door.width,
+                top: door.y,
+                bottom: door.y + door.height
+            };
+            return stickmanBounds.right > doorBounds.left && 
+                   stickmanBounds.left < doorBounds.right &&
+                   stickmanBounds.bottom > doorBounds.top &&
+                   stickmanBounds.top < doorBounds.bottom;
+        }
+        
+        function checkMineCollision(stickman) {
+            for (const mine of mines) {
+                const dx = stickman.x - mine.x;
+                const dy = stickman.y - mine.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < mineRadius + stickman.size * 25) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkGooTrapCollision(stickman) {
+            for (const trap of gooTraps) {
+                const dx = stickman.x - trap.x;
+                const dy = stickman.y - trap.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < gooRadius + stickman.size * 25) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkBulletCollision() {
+            // Check bullets from player 1 against player 2's stickman and shield
+            for (let i = 0; i < stickman1.bullets.length; i++) {
+                const bullet = stickman1.bullets[i];
+                const dx = bullet.x - stickman2.x;
+                const dy = bullet.y - (stickman2.y - stickman2.height/2);
+                if (Math.sqrt(dx*dx + dy*dy) < stickman2.width/2) {
+                    if (stickman2.shieldActive) {
+                        stickman1.bullets.splice(i, 1); // Remove the bullet
+                        return null; // Don't end the game
+                    }
+                    return { winner: stickman1, loser: stickman2 };
+                }
+            }
+
+            // Check bullets from player 2 against player 1's stickman and shield
+            for (let i = 0; i < stickman2.bullets.length; i++) {
+                const bullet = stickman2.bullets[i];
+                const dx = bullet.x - stickman1.x;
+                const dy = bullet.y - (stickman1.y - stickman1.height/2);
+                if (Math.sqrt(dx*dx + dy*dy) < stickman1.width/2) {
+                    if (stickman1.shieldActive) {
+                        stickman2.bullets.splice(i, 1); // Remove the bullet
+                        return null; // Don't end the game
+                    }
+                    return { winner: stickman2, loser: stickman1 };
+                }
+            }
+            return null;
+        }
+
+        function updateScore() {
+            score1Element.textContent = score1;
+            score2Element.textContent = score2;
+        }
+        
+        function updateStickman(stickman) {
+            if (stickman.isExploding || isTransitioning || isGameOver) {
+                return;
+            }
+            
+            if (!stickman.isFrozen) {
+                stickman.x += stickman.vx * stickman.speed;
+                stickman.y += stickman.vy * stickman.speed;
+            } else {
+                stickman.frozenTimer--;
+                if (stickman.frozenTimer <= 0) {
+                    stickman.isFrozen = false;
+                }
+            }
+
+            if (stickman.x > canvas.width + stickman.width / 2) {
+                stickman.x = -stickman.width / 2;
+            } else if (stickman.x < -stickman.width / 2) {
+                stickman.x = canvas.width + stickman.width / 2;
+            }
+
+            if (stickman.y > canvas.height + stickman.height / 2) {
+                stickman.y = -stickman.height / 2;
+            } else if (stickman.y < -stickman.height / 2) {
+                stickman.y = canvas.height + stickman.height / 2;
+            }
+            
+            if (!isMerged) {
+                if (checkMineCollision(stickman)) {
+                    createExplosion(stickman.x, stickman.y - stickman.height / 2, stickman);
+                    endGame();
+                    return;
+                }
+
+                if (checkGooTrapCollision(stickman)) {
+                    playSound('goo');
+                    endGame();
+                    return;
+                }
+            }
+        }
+        
+        function updateBullets(stickman) {
+            for (let i = 0; i < stickman.bullets.length; i++) {
+                stickman.bullets[i].x += stickman.bullets[i].vx;
+                stickman.bullets[i].y += stickman.bullets[i].vy;
+            }
+            stickman.bullets = stickman.bullets.filter(bullet => 
+                bullet.x > -10 && bullet.x < canvas.width + 10 &&
+                bullet.y > -10 && bullet.y < canvas.height + 10
+            );
+        }
+
+        function startLevelTwo() {
+            isTransitioning = true;
+            controlsInverted = false;
+            
+            createMineExplosion();
+            
+            createExplosion(stickman1.x, stickman1.y - stickman1.height / 2, stickman1);
+            createExplosion(stickman2.x, stickman2.y - stickman2.height / 2, stickman2);
+            
+            doorVisible = false;
+            doorEscaping = false;
+            gooTraps.length = 0;
+            
+            checkpoint.score1 = score1;
+            checkpoint.score2 = score2;
+            
+            levelMessageElement.textContent = "Level One Completed!";
+            levelUpScreen.classList.add('show');
+            playSound('levelUp');
+
+            setTimeout(() => {
+                levelMessageElement.textContent = "Boss Fight!";
+                setTimeout(() => {
+                    levelUpScreen.classList.remove('show');
+                    isMerged = true;
+                    isTransitioning = false;
+                    updateStatusText();
+                }, 2000);
+            }, 3000);
+        }
+
+        function updateMergedStickman() {
+            if (mergedStickman.isExploding || isGameOver) {
+                return;
+            }
+
+            if (!mergedStickman.isFrozen) {
+                mergedStickman.x += mergedStickman.vx * mergedStickman.speed;
+                mergedStickman.y += mergedStickman.vy * mergedStickman.speed;
+            } else {
+                mergedStickman.frozenTimer--;
+                if (mergedStickman.frozenTimer <= 0) {
+                    mergedStickman.isFrozen = false;
+                }
+            }
+
+            if (mergedStickman.x > canvas.width + mergedStickman.width / 2) {
+                mergedStickman.x = -mergedStickman.width / 2;
+            } else if (mergedStickman.x < -mergedStickman.width / 2) {
+                mergedStickman.x = canvas.width + mergedStickman.width / 2;
+            }
+
+            if (mergedStickman.y > canvas.height + mergedStickman.height / 2) {
+                mergedStickman.y = -mergedStickman.height / 2;
+            } else if (mergedStickman.y < -mergedStickman.height / 2) {
+                mergedStickman.y = canvas.height + mergedStickman.height / 2;
+            }
+            
+            if (checkMineCollision(mergedStickman)) {
+                createExplosion(mergedStickman.x, mergedStickman.y - mergedStickman.height / 2, mergedStickman);
+                mergedStickman.vx = 0;
+                mergedStickman.vy = 0;
+                updateStatusText();
+                endGame(true);
+            }
+        }
+        
+        function update() {
+            if (isTransitioning || isGameOver) {
+                if (stickman1.isExploding) drawExplosion(stickman1);
+                if (stickman2.isExploding) drawExplosion(stickman2);
+                return;
+            }
+
+            if (isMerged) {
+                updateMergedStickman();
+                return;
+            }
+            
+            if (score1 + score2 >= 5 && !isTransitioning) {
+                startLevelTwo();
+                return;
+            }
+
+            updateStickman(stickman1);
+            updateStickman(stickman2);
+            updateBullets(stickman1);
+            updateBullets(stickman2);
+
+            const bulletHit = checkBulletCollision();
+            if (bulletHit) {
+                if (bulletHit.loser === stickman1) {
+                    createExplosion(stickman1.x, stickman1.y - stickman1.height/2, stickman1);
+                } else {
+                    createExplosion(stickman2.x, stickman2.y - stickman2.height/2, stickman2);
+                }
+                endGame(false, bulletHit.winner.id);
+                return;
+            }
+
+            const totalScore = score1 + score2;
+            
+            if (checkDoorCollision(stickman1)) {
+                controlsInverted = Math.random() < 0.5 ? !controlsInverted : controlsInverted;
+                score1++;
+                updateScore();
+                playSound('door');
+                if (totalScore % 5 === 0) {
+                    doorEscaping = true;
+                    doorEscapeTimer = 180;
+                } else if (totalScore % 3 === 0) {
+                    doorVisible = false;
+                    doorDisappearTimer = 90;
+                } else {
+                    createDoor();
+                }
+                updateStatusText();
+            } else if (checkDoorCollision(stickman2)) {
+                controlsInverted = Math.random() < 0.5 ? !controlsInverted : controlsInverted;
+                score2++;
+                updateScore();
+                playSound('door');
+                if (totalScore % 5 === 0) {
+                    doorEscaping = true;
+                    doorEscapeTimer = 180;
+                } else if (totalScore % 3 === 0) {
+                    doorVisible = false;
+                    doorDisappearTimer = 90;
+                } else {
+                    createDoor();
+                }
+                updateStatusText();
+            }
+
+
+            if (doorDisappearTimer > 0) {
+                doorDisappearTimer--;
+                if (doorDisappearTimer <= 0) {
+                    createDoor();
+                }
+            }
+
+            if (doorEscaping) {
+                const dx1 = door.x - stickman1.x;
+                const dy1 = door.y - stickman1.y;
+                const dist1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+                
+                const dx2 = door.x - stickman2.x;
+                const dy2 = door.y - stickman2.y;
+                const dist2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+
+                let dx, dy, dist;
+
+                if (dist1 < dist2) {
+                    dx = dx1;
+                    dy = dy1;
+                    dist = dist1;
+                } else {
+                    dx = dx2;
+                    dy = dy2;
+                    dist = dist2;
+                }
+                
+                if (dist > 0) {
+                    door.vx = (dx / dist) * door.speed;
+                    door.vy = (dy / dist) * door.speed;
+                }
+
+                door.x += door.vx;
+                door.y += door.vy;
+
+                doorEscapeTimer--;
+                if (doorEscapeTimer <= 0) {
+                    doorEscaping = false;
+                    createDoor();
+                }
+            }
+        }
+        
+        function updateStatusText(winnerId = null) {
+            if (winnerId) {
+                statusTextElement.textContent = `Player ${winnerId} Wins!`;
+            } else if (isGameOver) {
+                 statusTextElement.textContent = "GAME OVER!";
+            } else if (isMerged) {
+                 statusTextElement.textContent = "The Ultimate Stickman is Here!";
+            } else if (controlsInverted) {
+                statusTextElement.textContent = "Controls: INVERTED";
+            } else {
+                statusTextElement.textContent = "Controls: NORMAL";
+            }
+        }
+
+        function endGame(isBossFight = false, winnerId = null) {
+            isGameOver = true;
+            finalScore1Element.textContent = score1;
+            finalScore2Element.textContent = score2;
+            gameOverScreen.classList.add('show');
+            playSound('gameOver');
+            if (isBossFight) {
+                restartFromCheckpointBtn.style.display = 'inline-block';
+            } else {
+                restartFromCheckpointBtn.style.display = 'none';
+            }
+            updateStatusText(winnerId);
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            update();
+            
+            if (isMerged) {
+                if (mergedStickman.isExploding) {
+                    drawExplosion(mergedStickman);
+                } else {
+                    drawStickman(mergedStickman);
+                }
+            } else {
+                drawMines();
+                drawGooTraps();
+                drawDoor();
+                
+                if (stickman1.isExploding) {
+                    drawExplosion(stickman1);
+                } else {
+                    drawStickman(stickman1);
+                }
+
+                if (stickman2.isExploding) {
+                    drawExplosion(stickman2);
+                } else {
+                    drawStickman(stickman2);
+                }
+                
+                stickman1.bullets.forEach(drawBullet);
+                stickman2.bullets.forEach(drawBullet);
+                drawShield(stickman1);
+                drawShield(stickman2);
+            }
+            
+            if (!isGameOver) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        window.addEventListener('keydown', (e) => {
+            if (isGameOver || isTransitioning) return;
+            
+            let currentStickman = isMerged ? mergedStickman : null;
+            if (currentStickman) {
+                 if (currentStickman.isExploding || currentStickman.isFrozen) return;
+                 if (controlsInverted) {
+                    switch(e.key.toLowerCase()) {
+                        case 'w': case 'arrowup': currentStickman.vy = 1; break;
+                        case 's': case 'arrowdown': currentStickman.vy = -1; break;
+                        case 'a': case 'arrowleft': currentStickman.vx = 1; currentStickman.facingDirection = -1; break;
+                        case 'd': case 'arrowright': currentStickman.vx = -1; currentStickman.facingDirection = 1; break;
+                    }
+                } else {
+                    switch(e.key.toLowerCase()) {
+                        case 'w': case 'arrowup': currentStickman.vy = -1; break;
+                        case 's': case 'arrowdown': currentStickman.vy = 1; break;
+                        case 'a': case 'arrowleft': currentStickman.vx = -1; currentStickman.facingDirection = -1; break;
+                        case 'd': case 'arrowright': currentStickman.vx = 1; currentStickman.facingDirection = 1; break;
+                    }
+                }
+            } else {
+                if (stickman1.isExploding || stickman2.isExploding) return;
+                
+                if (!stickman1.isFrozen) {
+                    if (controlsInverted) {
+                        switch(e.key) {
+                            case 'ArrowUp': stickman1.vy = 1; break;
+                            case 'ArrowDown': stickman1.vy = -1; break;
+                            case 'ArrowLeft': stickman1.vx = 1; stickman1.facingDirection = -1; break;
+                            case 'ArrowRight': stickman1.vx = -1; stickman1.facingDirection = 1; break;
+                        }
+                    } else {
+                        switch(e.key) {
+                            case 'ArrowUp': stickman1.vy = -1; break;
+                            case 'ArrowDown': stickman1.vy = 1; break;
+                            case 'ArrowLeft': stickman1.vx = -1; stickman1.facingDirection = -1; break;
+                            case 'ArrowRight': stickman1.vx = 1; stickman1.facingDirection = 1; break;
+                        }
+                    }
+                }
+                
+                if (!stickman2.isFrozen) {
+                    if (controlsInverted) {
+                        switch(e.key.toLowerCase()) {
+                            case 'w': stickman2.vy = 1; break;
+                            case 's': stickman2.vy = -1; break;
+                            case 'a': stickman2.vx = 1; stickman2.facingDirection = -1; break;
+                            case 'd': stickman2.vx = -1; stickman2.facingDirection = 1; break;
+                        }
+                    } else {
+                        switch(e.key.toLowerCase()) {
+                            case 'w': stickman2.vy = -1; break;
+                            case 's': stickman2.vy = 1; break;
+                            case 'a': stickman2.vx = -1; stickman2.facingDirection = -1; break;
+                            case 'd': stickman2.vx = 1; stickman2.facingDirection = 1; break;
+                        }
+                    }
+                }
+
+                if (e.key.toLowerCase() === 'g') {
+                    stickman1.hasGun = !stickman1.hasGun;
+                }
+                if (e.key.toLowerCase() === 'p') {
+                    stickman2.hasGun = !stickman2.hasGun;
+                }
+
+                if (e.key.toLowerCase() === 'f' && stickman1.hasGun) {
+                    const bulletSpeed = 10;
+                    stickman1.bullets.push({
+                        x: stickman1.x,
+                        y: stickman1.y - stickman1.height / 2,
+                        vx: stickman1.facingDirection * bulletSpeed,
+                        vy: 0,
+                    });
+                    playSound('shoot');
+                }
+                if (e.key === 'Enter' && stickman2.hasGun) {
+                    const bulletSpeed = 10;
+                    stickman2.bullets.push({
+                        x: stickman2.x,
+                        y: stickman2.y - stickman2.height / 2,
+                        vx: stickman2.facingDirection * bulletSpeed,
+                        vy: 0,
+                    });
+                    playSound('shoot');
+                }
+                if (e.key.toLowerCase() === 'c') {
+                    stickman1.shieldActive = true;
+                }
+                if (e.key.toLowerCase() === 'l') {
+                    stickman2.shieldActive = true;
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (isGameOver || isTransitioning) return;
+
+            let currentStickman = isMerged ? mergedStickman : null;
+            if (currentStickman) {
+                if (currentStickman.isExploding || currentStickman.isFrozen) return;
+                switch(e.key.toLowerCase()) {
+                    case 'w': case 's': case 'arrowup': case 'arrowdown': currentStickman.vy = 0; break;
+                    case 'a': case 'd': case 'arrowleft': case 'arrowright': currentStickman.vx = 0; break;
+                }
+            } else {
+                if (stickman1.isExploding || stickman2.isExploding) return;
+                switch(e.key) {
+                    case 'ArrowUp': case 'ArrowDown': stickman1.vy = 0; break;
+                    case 'ArrowLeft': case 'ArrowRight': stickman1.vx = 0; break;
+                    case 'l': stickman2.shieldActive = false; break;
+                }
+                switch(e.key.toLowerCase()) {
+                    case 'w': case 's': stickman2.vy = 0; break;
+                    case 'a': case 'd': stickman2.vx = 0; break;
+                    case 'c': stickman1.shieldActive = false; break;
+                }
+            }
+        });
+
+        playAgainBtn.addEventListener('click', resetGame);
+        restartFromCheckpointBtn.addEventListener('click', restartFromCheckpoint);
+        audioToggleBtn.addEventListener('click', () => {
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            isAudioEnabled = !isAudioEnabled;
+            audioToggleBtn.textContent = isAudioEnabled ? 'Audio: On' : 'Audio: Off';
+        });
+
+        window.onload = function() {
+            resizeCanvas();
+            updateStatusText();
+            updateScore();
+            gameLoop();
+        };
+        
+        window.addEventListener('resize', () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            resizeCanvas();
+            updateStatusText();
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
